@@ -16,22 +16,17 @@ export async function POST(request) {
     const API_KEY = process.env.OPENROUTER_API_KEY;
     if (!API_KEY) return NextResponse.json({ error: 'API Key missing' }, { status: 500 });
 
-    // ==========================================
-    // 1. HANDLE IMAGE GENERATION (Upgraded!)
-    // ==========================================
+    // 1. HANDLE IMAGE GENERATION
     if (message.toLowerCase().startsWith('image:')) {
       const imgPrompt = message.substring(6).trim();
       const encoded = encodeURIComponent(imgPrompt);
       const randomSeed = Math.floor(Math.random() * 10000);
-      // Upgraded to 1024x1024 with a random seed for unique images every time
       const imgUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
       const htmlReply = `<img src="${imgUrl}" class="rounded-xl max-w-full mt-2 border border-white/10 shadow-lg" alt="Generated Image" />`;
       return NextResponse.json({ reply: htmlReply, isImage: true });
     }
 
-    // ==========================================
-    // 2. HANDLE TEXT CHAT (Faster Model + Longer Timeout)
-    // ==========================================
+    // 2. HANDLE TEXT CHAT
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...history.map((msg) => ({ role: msg.role, content: msg.content })),
@@ -50,7 +45,7 @@ export async function POST(request) {
         'X-Title': 'Vybe AI'
       },
       body: JSON.stringify({ 
-        model: 'meta-llama/llama-3.1-8b-instruct:free', // Much faster and smarter
+        model: 'qwen/qwen-2.5-7b-instruct:free', 
         messages: messages 
       }),
       signal: controller.signal
@@ -68,7 +63,7 @@ export async function POST(request) {
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      return NextResponse.json({ error: 'The AI took too long to respond. Please try a smaller request or ask for code in smaller chunks.' }, { status: 408 });
+      return NextResponse.json({ error: 'The AI took too long. Try asking for smaller chunks of code.' }, { status: 408 });
     }
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
