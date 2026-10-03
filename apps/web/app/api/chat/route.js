@@ -17,7 +17,7 @@ export async function POST(request) {
     if (!API_KEY) return NextResponse.json({ error: 'API Key missing' }, { status: 500 });
 
     // 1. HANDLE IMAGE GENERATION - UPGRADED FOR REALISM
-    if (message.toLowerCase().startsWith('image:') && (message.includes('realistic') || message.includes('photo') || message.includes('3d') || true)) {
+    if (message.toLowerCase().startsWith('image:')) {
       const imgPrompt = message.substring(6).trim();
       const encoded = encodeURIComponent(imgPrompt);
       const randomSeed = Math.floor(Math.random() * 10000);
