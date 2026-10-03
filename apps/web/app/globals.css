@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+  overflow: hidden; /* Locks the whole page so only the chat scrolls */
+  background-color: #0a0a0a;
+  color: white;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom scrollbar for the chat */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
