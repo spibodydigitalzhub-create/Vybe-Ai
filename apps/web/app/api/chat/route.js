@@ -16,14 +16,26 @@ export async function POST(request) {
     const API_KEY = process.env.OPENROUTER_API_KEY;
     if (!API_KEY) return NextResponse.json({ error: 'API Key missing' }, { status: 500 });
 
-    // 1. HANDLE IMAGE GENERATION
-    if (message.toLowerCase().startsWith('image:')) {
+    // 1. HANDLE IMAGE GENERATION - UPGRADED FOR REALISM
+    if (message.toLowerCase().startsWith('image:') && (message.includes('realistic') || message.includes('photo') || message.includes('3d') || true)) {
       const imgPrompt = message.substring(6).trim();
       const encoded = encodeURIComponent(imgPrompt);
       const randomSeed = Math.floor(Math.random() * 10000);
-      const imgUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
-      const htmlReply = `<img src="${imgUrl}" class="rounded-xl max-w-full mt-2 border border-white/10 shadow-lg" alt="Generated Image" />`;
-      return NextResponse.json({ reply: htmlReply, isImage: true });
+      
+      // Enhanced parameters for photorealistic images
+      const imgUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${randomSeed}&enhance=true`;
+      
+      // Return both the image HTML and the direct URL for downloading
+      const htmlReply = `
+        <div class="relative group">
+          <img src="${imgUrl}" class="rounded-xl max-w-full mt-2 border border-white/10 shadow-lg" alt="Generated Image" />
+          <a href="${imgUrl}" download="vybe-ai-image-${randomSeed}.jpg" class="absolute top-2 right-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-lg flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download
+          </a>
+        </div>
+      `;
+      return NextResponse.json({ reply: htmlReply, isImage: true, imageUrl: imgUrl });
     }
 
     // 2. HANDLE TEXT CHAT
@@ -34,10 +46,8 @@ export async function POST(request) {
     ];
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-    // BULLETPROOF FIX: 'openrouter/auto' will NEVER give a 404 error.
-    // It automatically routes to whatever free model is currently online.
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
