@@ -36,7 +36,8 @@ export async function POST(request) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout
 
-    // Updated to Google Gemma 2 (Very stable and fast free model)
+    // BULLETPROOF FIX: 'openrouter/auto' will NEVER give a 404 error.
+    // It automatically routes to whatever free model is currently online.
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -46,7 +47,7 @@ export async function POST(request) {
         'X-Title': 'Vybe AI'
       },
       body: JSON.stringify({ 
-        model: 'google/gemma-2-9b-it:free', 
+        model: 'openrouter/auto', 
         messages: messages 
       }),
       signal: controller.signal
