@@ -9,23 +9,19 @@ Always be direct, highly detailed, and execute the task precisely.`;
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { message, history = [] } = body;
+    const { message, history = [], image = null } = body;
 
-    if (!message) return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    if (!message && !image) return NextResponse.json({ error: 'Message or image is required' }, { status: 400 });
 
     const API_KEY = process.env.OPENROUTER_API_KEY;
     if (!API_KEY) return NextResponse.json({ error: 'API Key missing' }, { status: 500 });
 
-    // 1. HANDLE IMAGE GENERATION - UPGRADED FOR REALISM
-    if (message.toLowerCase().startsWith('image:')) {
+    // 1. HANDLE IMAGE GENERATION (Text to Image)
+    if (message && message.toLowerCase().startsWith('image:')) {
       const imgPrompt = message.substring(6).trim();
       const encoded = encodeURIComponent(imgPrompt);
       const randomSeed = Math.floor(Math.random() * 10000);
-      
-      // Enhanced parameters for photorealistic images
       const imgUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${randomSeed}&enhance=true`;
-      
-      // Return both the image HTML and the direct URL for downloading
       const htmlReply = `
         <div class="relative group">
           <img src="${imgUrl}" class="rounded-xl max-w-full mt-2 border border-white/10 shadow-lg" alt="Generated Image" />
@@ -38,11 +34,24 @@ export async function POST(request) {
       return NextResponse.json({ reply: htmlReply, isImage: true, imageUrl: imgUrl });
     }
 
-    // 2. HANDLE TEXT CHAT
+    // 2. HANDLE TEXT & VISION CHAT
+    const recentHistory = history.slice(-10); 
+    let model = 'openrouter/auto';
+    let userContent = message || "Describe this image.";
+
+    // If an image is uploaded, switch to a Vision model and format the payload
+    if (image) {
+      model = 'meta-llama/llama-3.2-11b-vision-instruct:free'; // Free vision model
+      userContent = [
+        { type: "text", text: message || "Please describe this image in detail." },
+        { type: "image_url", image_url: { url: image } }
+      ];
+    }
+
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
-      ...history.map((msg) => ({ role: msg.role, content: msg.content })),
-      { role: 'user', content: message }
+      ...recentHistory.map((msg) => ({ role: msg.role, content: msg.content })),
+      { role: 'user', content: userContent }
     ];
 
     const controller = new AbortController();
@@ -56,10 +65,7 @@ export async function POST(request) {
         'HTTP-Referer': 'https://vybe-ai-web.vercel.app',
         'X-Title': 'Vybe AI'
       },
-      body: JSON.stringify({ 
-        model: 'openrouter/auto', 
-        messages: messages 
-      }),
+      body: JSON.stringify({ model: model, messages: messages }),
       signal: controller.signal
     });
 
@@ -75,7 +81,7 @@ export async function POST(request) {
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      return NextResponse.json({ error: 'The AI took too long. Try asking for smaller chunks of code.' }, { status: 408 });
+      return NextResponse.json({ error: 'The AI took too long.' }, { status: 408 });
     }
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
