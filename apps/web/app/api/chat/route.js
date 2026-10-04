@@ -7,7 +7,7 @@ export async function POST(request) {
 
     if (!message && !image) return NextResponse.json({ error: 'Message or image is required' }, { status: 400 });
 
-    // 1. HANDLE IMAGE GENERATION (Keep Pollinations, it's perfect)
+    // 1. HANDLE IMAGE GENERATION
     if (message && message.toLowerCase().startsWith('image:')) {
       const imgPrompt = message.substring(6).trim();
       const encoded = encodeURIComponent(imgPrompt);
@@ -16,7 +16,7 @@ export async function POST(request) {
       return NextResponse.json({ reply: `![Generated Image](${imgUrl})`, isImage: true, imageUrl: imgUrl });
     }
 
-    // 2. HANDLE TEXT CHAT WITH HUGGING FACE (Uncensored)
+    // 2. HANDLE TEXT CHAT WITH HUGGING FACE
     const HF_TOKEN = process.env.HF_TOKEN;
     if (!HF_TOKEN) return NextResponse.json({ error: 'Hugging Face Token missing' }, { status: 500 });
 
@@ -25,17 +25,15 @@ export async function POST(request) {
     // Format specifically for Dolphin Llama 3
     let prompt = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n${systemPrompt}<|eot_id|>`;
     
-    // Add recent history
     const recentHistory = history.slice(-5);
     recentHistory.forEach(msg => {
       const role = msg.role === 'user' ? 'user' : 'assistant';
       prompt += `<|start_header_id|>${role}<|end_header_id|>\n\n${msg.content}<|eot_id|>`;
     });
     
-    // Add current message
     prompt += `<|start_header_id|>user<|end_header_id|>\n\n${message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n`;
 
-    const res = await fetch('https://api-inference.huggingface.co/models/cognitivecomputations/dolphin-2.9-llama3-8b', {
+    const fetchOptions = {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${HF_TOKEN}`,
@@ -47,22 +45,35 @@ export async function POST(request) {
           max_new_tokens: 800,
           temperature: 0.7,
           top_p: 0.9,
-          return_full_text: false // Only return the AI's reply, not the prompt
+          return_full_text: false 
         }
       })
-    });
+    };
+
+    const MODEL_URL = 'https://api-inference.huggingface.co/models/cognitivecomputations/dolphin-2.9-llama3-8b';
+
+    // FIRST ATTEMPT
+    let res = await fetch(MODEL_URL, fetchOptions);
+
+    // AUTO WAKE-UP LOGIC: If the model is sleeping (503), wait and retry
+    if (res.status === 503) {
+      const errData = await res.json().catch(() => ({}));
+      const waitTime = Math.min((errData.estimated_time || 20) * 1000, 30000); // Wait max 30s
+      
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+      // RETRY AFTER WAKING UP
+      res = await fetch(MODEL_URL, fetchOptions);
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return NextResponse.json({ error: `AI Error: ${res.status} - ${err.error || 'Unknown error'}` }, { status: res.status });
+      return NextResponse.json({ error: `AI Error: ${res.status} - ${err.error || 'Model failed to load. Please try again in 30 seconds.'}` }, { status: res.status });
     }
 
     const data = await res.json();
     
-    // Hugging Face returns an array with generated_text
     let reply = data[0]?.generated_text || "No response generated.";
-    
-    // Clean up any leftover prompt artifacts or newlines
     reply = reply.replace(/^[\s\n]+/, '').trim();
 
     return NextResponse.json({ reply: reply, isImage: false });
