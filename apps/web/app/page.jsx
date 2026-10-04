@@ -35,10 +35,10 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   );
 };
 
-// 2. SMART IMAGE COMPONENT (Catches AI generated images)
-const ImageBlock = ({ src, alt }) => (
+// 2. IMAGE COMPONENT
+const ImageBlock = ({ src }) => (
   <div className="relative group my-3 rounded-xl overflow-hidden border border-white/10 shadow-lg bg-black">
-    <img src={src} alt={alt || 'Generated'} className="w-full h-auto max-h-[500px] object-contain" />
+    <img src={src} alt="AI Generated" className="w-full h-auto max-h-[500px] object-contain" />
     <a href={src} download={`vybe-${Date.now()}.jpg`} target="_blank" className="absolute top-2 right-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg flex items-center gap-1">
       ⬇ Download
     </a>
@@ -47,7 +47,6 @@ const ImageBlock = ({ src, alt }) => (
 
 // 3. CUSTOM MARKDOWN LAYOUT
 const MarkdownComponents = {
-  img: ImageBlock,
   p: ({ children }) => <p className="mb-3 text-gray-200 leading-relaxed text-[0.95rem]">{children}</p>,
   ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1 text-gray-200">{children}</ul>,
   ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1 text-gray-200">{children}</ol>,
@@ -64,13 +63,34 @@ const MarkdownComponents = {
   td: ({ children }) => <td className="px-3 py-2 border-b border-white/10 whitespace-nowrap">{children}</td>,
   a: ({ href, children }) => <a href={href} target="_blank" className="text-cyan-400 underline hover:text-cyan-300">{children}</a>,
   blockquote: ({ children }) => <blockquote className="border-l-4 border-cyan-500 pl-4 italic text-gray-400 my-3">{children}</blockquote>,
-  code: CodeBlock
+  code: CodeBlock,
+  img: () => null // Hide default markdown images so we can render our custom ones
 };
 
-// Helper to extract Pollinations images from raw text if markdown fails
-const extractImages = (text) => {
-  const regex = /https:\/\/image\.pollinations\.ai\/prompt\/[^\s\)]+/g;
-  return text.match(regex) || [];
+// Helper to split text and images
+const renderMessageContent = (content) => {
+  if (!content) return null;
+  // Split by Pollinations URL
+  const parts = content.split(/(https:\/\/image\.pollinations\.ai\/prompt\/[^\s\)]+)/g);
+  
+  return parts.map((part, index) => {
+    if (part.startsWith('https://image.pollinations.ai/prompt/')) {
+      return <ImageBlock key={index} src={part} />;
+    }
+    if (part.trim()) {
+      return (
+        <ReactMarkdown
+          key={index}
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
+          components={MarkdownComponents}
+        >
+          {part}
+        </ReactMarkdown>
+      );
+    }
+    return null;
+  });
 };
 
 export default function Home() {
@@ -82,6 +102,13 @@ export default function Home() {
   const [selectedImage, setSelectedImage] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Register Service Worker for PWA Install
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+    }
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('vybe_chats');
@@ -160,7 +187,7 @@ export default function Home() {
       <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative md:translate-x-0 z-50 w-64 h-full bg-[#11111a] border-r border-white/10 transition-transform duration-300 flex flex-col`}>
         <div className="p-4 border-b border-white/10 flex justify-between items-center">
           <h2 className="font-bold text-cyan-400">History</h2>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400">✕</button>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400"></button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
           {chats.map(chat => (
@@ -187,19 +214,8 @@ export default function Home() {
               <div className={`max-w-[90%] min-w-0 p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
                 {msg.image && <img src={msg.image} className="max-w-full rounded-lg mb-3 border border-white/20" alt="Uploaded" />}
                 
-                {/* SMART IMAGE EXTRACTION (Renders images even if AI formats them weirdly) */}
-                {extractImages(msg.content).map((url, idx) => (
-                  <ImageBlock key={idx} src={url} alt="AI Generated" />
-                ))}
-
-                {/* CUSTOM MARKDOWN RENDERER */}
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                  components={MarkdownComponents}
-                >
-                  {msg.content}
-                </ReactMarkdown>
+                {/* SMART RENDERER: Separates Images from Text */}
+                {renderMessageContent(msg.content)}
               </div>
             </div>
           ))}
@@ -223,7 +239,7 @@ export default function Home() {
             {selectedImage && (
               <div className="relative w-fit">
                 <img src={selectedImage} className="h-20 rounded-lg border border-cyan-500/50" alt="Preview" />
-                <button onClick={() => { setSelectedImage(null); fileInputRef.current.value = ""; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">✕</button>
+                <button onClick={() => { setSelectedImage(null); fileInputRef.current.value = ""; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"></button>
               </div>
             )}
             <div className="flex gap-2">
