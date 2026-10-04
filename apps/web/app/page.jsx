@@ -40,9 +40,7 @@ export default function Home() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result); // This creates a base64 string
-      };
+      reader.onloadend = () => setSelectedImage(reader.result);
       reader.readAsDataURL(file);
     }
   };
@@ -85,8 +83,11 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f] text-white overflow-hidden">
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative md:translate-x-0 z-20 w-64 h-full bg-[#11111a] border-r border-white/10 transition-transform duration-300 flex flex-col`}>
+    // FIX 1: Changed h-screen to h-[100dvh] to fix mobile browser height issues
+    <div className="flex h-[100dvh] bg-[#0a0a0f] text-white overflow-hidden">
+      
+      {/* SIDEBAR */}
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative md:translate-x-0 z-50 w-64 h-full bg-[#11111a] border-r border-white/10 transition-transform duration-300 flex flex-col`}>
         <div className="p-4 border-b border-white/10 flex justify-between items-center">
           <h2 className="font-bold text-cyan-400">History</h2>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400">✕</button>
@@ -102,12 +103,16 @@ export default function Home() {
         <button onClick={createNewChat} className="m-4 p-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition-colors">+ New Chat</button>
       </div>
 
-      <div className="flex-1 flex flex-col h-full relative">
-        <div className="p-4 border-b border-white/10 flex items-center gap-4 bg-[#0a0a0f]/80 backdrop-blur">
+      {/* MAIN CHAT AREA */}
+      <div className="flex-1 flex flex-col h-full relative w-full">
+        
+        {/* FIX 2: Added relative z-10 and solid background so header stays on top */}
+        <div className="relative z-10 p-4 border-b border-white/10 flex items-center gap-4 bg-[#0a0a0f]">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden text-2xl text-cyan-400">☰</button>
           <h1 className="text-xl font-bold text-cyan-400">Vybe AI</h1>
         </div>
 
+        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {currentChat?.messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -131,12 +136,13 @@ export default function Home() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-4 border-t border-white/10 bg-[#0a0a0f]">
+        {/* Input Area */}
+        <div className="relative z-10 p-4 border-t border-white/10 bg-[#0a0a0f]">
           <div className="flex flex-col gap-2 max-w-4xl mx-auto">
             {selectedImage && (
               <div className="relative w-fit">
                 <img src={selectedImage} className="h-20 rounded-lg border border-cyan-500/50" alt="Preview" />
-                <button onClick={() => { setSelectedImage(null); fileInputRef.current.value = ""; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">✕</button>
+                <button onClick={() => { setSelectedImage(null); fileInputRef.current.value = ""; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"></button>
               </div>
             )}
             <div className="flex gap-2">
