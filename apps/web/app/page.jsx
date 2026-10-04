@@ -22,27 +22,16 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
     <div className="relative my-4 rounded-lg overflow-hidden border border-white/10 bg-[#1e1e2e]">
       <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-400 border-b border-white/10 bg-[#252536]">
         <span className="font-mono">{match[1].toUpperCase()}</span>
-        <button 
-          onClick={handleCopy} 
-          className="flex items-center gap-1 hover:text-cyan-400 transition-colors"
-        >
+        <button onClick={handleCopy} className="flex items-center gap-1 hover:text-cyan-400 transition-colors">
           {copied ? '✓ Copied!' : '📋 Copy'}
         </button>
       </div>
-      <SyntaxHighlighter
-        style={vscDarkPlus}
-        language={match[1]}
-        PreTag="div"
-        customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.85rem' }}
-        {...props}
-      >
+      <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.85rem' }} {...props}>
         {String(children).replace(/\n$/, '')}
       </SyntaxHighlighter>
     </div>
   ) : (
-    <code className="bg-[#1e1e2e] px-1.5 py-0.5 rounded text-sm text-cyan-300 font-mono" {...props}>
-      {children}
-    </code>
+    <code className="bg-[#1e1e2e] px-1.5 py-0.5 rounded text-sm text-cyan-300 font-mono break-all" {...props}>{children}</code>
   );
 };
 
@@ -147,7 +136,7 @@ export default function Home() {
       </div>
 
       {/* MAIN CHAT AREA */}
-      <div className="flex-1 flex flex-col h-full relative w-full">
+      <div className="flex-1 flex flex-col h-full relative w-full min-w-0">
         <div className="relative z-10 p-4 border-b border-white/10 flex items-center gap-4 bg-[#0a0a0f]">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden text-2xl text-cyan-400">☰</button>
           <h1 className="text-xl font-bold text-cyan-400">Vybe AI</h1>
@@ -157,18 +146,21 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {currentChat?.messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[90%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
+              {/* FIX: Added min-w-0 and overflow-hidden to prevent text from breaking the bubble */}
+              <div className={`max-w-[85%] min-w-0 p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
                 {msg.image && <img src={msg.image} className="max-w-full rounded-lg mb-3 border border-white/20" alt="Uploaded" />}
                 
-                {/* MARKDOWN RENDERER */}
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                  components={{ code: CodeBlock }}
-                  className="prose prose-invert max-w-none prose-p:my-2 prose-pre:m-0"
-                >
-                  {msg.content}
-                </ReactMarkdown>
+                {/* FIX: Wrapped Markdown in overflow-x-auto to handle wide tables/code */}
+                <div className="w-full overflow-x-auto break-words text-sm">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                    components={{ code: CodeBlock }}
+                    className="prose prose-invert prose-sm max-w-none break-words [&_table]:w-full [&_table]:text-xs [&_pre]:overflow-x-auto [&_img]:max-w-full"
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           ))}
