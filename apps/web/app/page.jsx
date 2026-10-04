@@ -6,7 +6,7 @@ import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-// Custom Code Block Component with Copy Button
+// 1. CODE BLOCK COMPONENT
 const CodeBlock = ({ node, inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
@@ -19,20 +19,58 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   };
 
   return !inline && match ? (
-    <div className="relative my-4 rounded-lg overflow-hidden border border-white/10 bg-[#1e1e2e]">
+    <div className="relative my-3 rounded-lg overflow-hidden border border-white/10 bg-[#1e1e2e]">
       <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-400 border-b border-white/10 bg-[#252536]">
         <span className="font-mono">{match[1].toUpperCase()}</span>
         <button onClick={handleCopy} className="flex items-center gap-1 hover:text-cyan-400 transition-colors">
           {copied ? '✓ Copied!' : '📋 Copy'}
         </button>
       </div>
-      <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.85rem' }} {...props}>
+      <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.8rem' }} {...props}>
         {String(children).replace(/\n$/, '')}
       </SyntaxHighlighter>
     </div>
   ) : (
-    <code className="bg-[#1e1e2e] px-1.5 py-0.5 rounded text-sm text-cyan-300 font-mono break-all" {...props}>{children}</code>
+    <code className="bg-[#1e1e2e] px-1.5 py-0.5 rounded text-xs text-cyan-300 font-mono break-all" {...props}>{children}</code>
   );
+};
+
+// 2. SMART IMAGE COMPONENT (Catches AI generated images)
+const ImageBlock = ({ src, alt }) => (
+  <div className="relative group my-3 rounded-xl overflow-hidden border border-white/10 shadow-lg bg-black">
+    <img src={src} alt={alt || 'Generated'} className="w-full h-auto max-h-[500px] object-contain" />
+    <a href={src} download={`vybe-${Date.now()}.jpg`} target="_blank" className="absolute top-2 right-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg flex items-center gap-1">
+      ⬇ Download
+    </a>
+  </div>
+);
+
+// 3. CUSTOM MARKDOWN LAYOUT
+const MarkdownComponents = {
+  img: ImageBlock,
+  p: ({ children }) => <p className="mb-3 text-gray-200 leading-relaxed text-[0.95rem]">{children}</p>,
+  ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1 text-gray-200">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1 text-gray-200">{children}</ol>,
+  li: ({ children }) => <li className="text-gray-200 text-[0.95rem]">{children}</li>,
+  h1: ({ children }) => <h1 className="text-xl font-bold text-cyan-400 mb-2 mt-4">{children}</h1>,
+  h2: ({ children }) => <h2 className="text-lg font-bold text-cyan-300 mb-2 mt-3">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-base font-bold text-cyan-200 mb-2 mt-2">{children}</h3>,
+  table: ({ children }) => (
+    <div className="w-full overflow-x-auto my-3 border border-white/10 rounded-lg">
+      <table className="w-full text-xs text-left text-gray-300 min-w-[300px]">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => <th className="px-3 py-2 bg-[#252536] border-b border-white/10 font-bold whitespace-nowrap">{children}</th>,
+  td: ({ children }) => <td className="px-3 py-2 border-b border-white/10 whitespace-nowrap">{children}</td>,
+  a: ({ href, children }) => <a href={href} target="_blank" className="text-cyan-400 underline hover:text-cyan-300">{children}</a>,
+  blockquote: ({ children }) => <blockquote className="border-l-4 border-cyan-500 pl-4 italic text-gray-400 my-3">{children}</blockquote>,
+  code: CodeBlock
+};
+
+// Helper to extract Pollinations images from raw text if markdown fails
+const extractImages = (text) => {
+  const regex = /https:\/\/image\.pollinations\.ai\/prompt\/[^\s\)]+/g;
+  return text.match(regex) || [];
 };
 
 export default function Home() {
@@ -146,21 +184,22 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {currentChat?.messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {/* FIX: Added min-w-0 and overflow-hidden to prevent text from breaking the bubble */}
-              <div className={`max-w-[85%] min-w-0 p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
+              <div className={`max-w-[90%] min-w-0 p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
                 {msg.image && <img src={msg.image} className="max-w-full rounded-lg mb-3 border border-white/20" alt="Uploaded" />}
                 
-                {/* FIX: Wrapped Markdown in overflow-x-auto to handle wide tables/code */}
-                <div className="w-full overflow-x-auto break-words text-sm">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
-                    components={{ code: CodeBlock }}
-                    className="prose prose-invert prose-sm max-w-none break-words [&_table]:w-full [&_table]:text-xs [&_pre]:overflow-x-auto [&_img]:max-w-full"
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
+                {/* SMART IMAGE EXTRACTION (Renders images even if AI formats them weirdly) */}
+                {extractImages(msg.content).map((url, idx) => (
+                  <ImageBlock key={idx} src={url} alt="AI Generated" />
+                ))}
+
+                {/* CUSTOM MARKDOWN RENDERER */}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={MarkdownComponents}
+                >
+                  {msg.content}
+                </ReactMarkdown>
               </div>
             </div>
           ))}
