@@ -1,5 +1,50 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+// Custom Code Block Component with Copy Button
+const CodeBlock = ({ node, inline, className, children, ...props }) => {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || '');
+
+  const handleCopy = () => {
+    const code = String(children).replace(/\n$/, '');
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return !inline && match ? (
+    <div className="relative my-4 rounded-lg overflow-hidden border border-white/10 bg-[#1e1e2e]">
+      <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-400 border-b border-white/10 bg-[#252536]">
+        <span className="font-mono">{match[1].toUpperCase()}</span>
+        <button 
+          onClick={handleCopy} 
+          className="flex items-center gap-1 hover:text-cyan-400 transition-colors"
+        >
+          {copied ? '✓ Copied!' : '📋 Copy'}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={vscDarkPlus}
+        language={match[1]}
+        PreTag="div"
+        customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.85rem' }}
+        {...props}
+      >
+        {String(children).replace(/\n$/, '')}
+      </SyntaxHighlighter>
+    </div>
+  ) : (
+    <code className="bg-[#1e1e2e] px-1.5 py-0.5 rounded text-sm text-cyan-300 font-mono" {...props}>
+      {children}
+    </code>
+  );
+};
 
 export default function Home() {
   const [chats, setChats] = useState([]);
@@ -83,9 +128,7 @@ export default function Home() {
   };
 
   return (
-    // FIX 1: Changed h-screen to h-[100dvh] to fix mobile browser height issues
     <div className="flex h-[100dvh] bg-[#0a0a0f] text-white overflow-hidden">
-      
       {/* SIDEBAR */}
       <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative md:translate-x-0 z-50 w-64 h-full bg-[#11111a] border-r border-white/10 transition-transform duration-300 flex flex-col`}>
         <div className="p-4 border-b border-white/10 flex justify-between items-center">
@@ -105,8 +148,6 @@ export default function Home() {
 
       {/* MAIN CHAT AREA */}
       <div className="flex-1 flex flex-col h-full relative w-full">
-        
-        {/* FIX 2: Added relative z-10 and solid background so header stays on top */}
         <div className="relative z-10 p-4 border-b border-white/10 flex items-center gap-4 bg-[#0a0a0f]">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden text-2xl text-cyan-400">☰</button>
           <h1 className="text-xl font-bold text-cyan-400">Vybe AI</h1>
@@ -116,9 +157,18 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {currentChat?.messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
-                {msg.image && <img src={msg.image} className="max-w-full rounded-lg mb-2 border border-white/20" alt="Uploaded" />}
-                <div dangerouslySetInnerHTML={{ __html: msg.content }} className="whitespace-pre-wrap break-words" />
+              <div className={`max-w-[90%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-[#1a1a24] border border-white/10 text-gray-200 rounded-bl-none'}`}>
+                {msg.image && <img src={msg.image} className="max-w-full rounded-lg mb-3 border border-white/20" alt="Uploaded" />}
+                
+                {/* MARKDOWN RENDERER */}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={{ code: CodeBlock }}
+                  className="prose prose-invert max-w-none prose-p:my-2 prose-pre:m-0"
+                >
+                  {msg.content}
+                </ReactMarkdown>
               </div>
             </div>
           ))}
@@ -142,7 +192,7 @@ export default function Home() {
             {selectedImage && (
               <div className="relative w-fit">
                 <img src={selectedImage} className="h-20 rounded-lg border border-cyan-500/50" alt="Preview" />
-                <button onClick={() => { setSelectedImage(null); fileInputRef.current.value = ""; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"></button>
+                <button onClick={() => { setSelectedImage(null); fileInputRef.current.value = ""; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">✕</button>
               </div>
             )}
             <div className="flex gap-2">
