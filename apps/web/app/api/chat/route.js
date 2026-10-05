@@ -7,7 +7,7 @@ export async function POST(request) {
 
     if (!message && !image) return NextResponse.json({ error: 'Message or image is required' }, { status: 400 });
 
-    // 1. HANDLE IMAGE GENERATION (Pollinations - Always works)
+    // 1. HANDLE IMAGE GENERATION
     if (message && message.toLowerCase().startsWith('image:')) {
       const imgPrompt = message.substring(6).trim();
       const encoded = encodeURIComponent(imgPrompt);
@@ -16,7 +16,7 @@ export async function POST(request) {
       return NextResponse.json({ reply: `![Generated Image](${imgUrl})`, isImage: true, imageUrl: imgUrl });
     }
 
-    // 2. TEXT CHAT (Using openrouter/auto - Never 404s)
+    // 2. TEXT CHAT
     const API_KEY = process.env.OPENROUTER_API_KEY;
     if (!API_KEY) {
       return NextResponse.json({ error: 'API Key missing in Vercel settings' }, { status: 500 });
@@ -31,7 +31,8 @@ export async function POST(request) {
         'X-Title': 'Vybe AI'
       },
       body: JSON.stringify({
-        model: 'openrouter/auto', // Automatically picks the best available free model
+        model: 'openrouter/auto',
+        max_tokens: 2000, // <--- THIS FIXES THE 402 ERROR (Caps usage safely under your 11,811 limit)
         messages: [
           { 
             role: 'system', 
